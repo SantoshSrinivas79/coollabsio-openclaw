@@ -6,12 +6,13 @@ services:
     environment:
       # Provider (at least one required)
       #- ANTHROPIC_API_KEY=sk-ant-...
-      - OPENCODE_API_KEY=${OPENCODE_API_KEY}
-      - OPENCLAW_PRIMARY_MODEL=opencode/kimi-k2.5
+      # - OPENCODE_API_KEY=${OPENCODE_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_PRIMARY_MODEL=${OPENCLAW_PRIMARY_MODEL}
       # Auth
-      - AUTH_USERNAME=whatever
-      - AUTH_PASSWORD=changeme
-      - OPENCLAW_GATEWAY_TOKEN=my-secret-token
+      - AUTH_USERNAME=${AUTH_USERNAME}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       # Browser sidecar
       - BROWSER_CDP_URL=http://browser:9223
       - BROWSER_DEFAULT_PROFILE=openclaw
@@ -19,6 +20,9 @@ services:
       # Hooks (optional)
       # - HOOKS_ENABLED=true
       # - HOOKS_TOKEN=my-hook-secret
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}      
     volumes:
       - openclaw-data:/data
       # Optional: custom JSON config for complex settings (groups, plugins, etc.)
