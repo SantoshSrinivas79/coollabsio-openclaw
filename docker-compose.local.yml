@@ -1,38 +1,50 @@
 services:
   openclaw:
-    image: openclaw:local
+    image: coollabsio/openclaw:latest
+    container_name: openclaw
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
+      # Uncomment next line only if you need direct gateway access from LAN
+      # - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"
     environment:
-      # Provider (at least one required)
-      - OPENCODE_API_KEY=${OPENCODE_API_KEY}
-      - OPENCLAW_PRIMARY_MODEL=opencode/kimi-k2.5
-      # Auth
-      - AUTH_USERNAME=whatever
-      - AUTH_PASSWORD=secret
-      - OPENCLAW_GATEWAY_TOKEN=local-dev-token
-      # Browser sidecar
-      - BROWSER_CDP_URL=http://browser:9223
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_PRIMARY_MODEL=${OPENCLAW_PRIMARY_MODEL}
+      - AUTH_USERNAME=${AUTH_USERNAME}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}
+      - BROWSER_CDP_URL=http://browser:9222
       - BROWSER_DEFAULT_PROFILE=openclaw
       - BROWSER_EVALUATE_ENABLED=true
+      # - HOOKS_ENABLED=true
+      # - HOOKS_TOKEN=${HOOKS_TOKEN}
     volumes:
-      - openclaw-data:/data
+      - ./data/openclaw:/data
+      # Optional: mount custom config if you have advanced settings
+      # - ./openclaw.json:/app/config/openclaw.json:ro
     depends_on:
       - browser
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   browser:
-    image: openclaw-browser:local
+    image: coollabsio/openclaw-browser:latest
+    container_name: openclaw-browser
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
       - CHROME_CLI=--remote-debugging-port=9222
     volumes:
-      - browser-data:/config
+      - ./data/browser:/config
     shm_size: 2g
     restart: unless-stopped
 
-volumes:
-  openclaw-data:
-  browser-data:
+# No volumes section needed when using bind mounts

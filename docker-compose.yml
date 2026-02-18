@@ -1,8 +1,11 @@
 services:
   openclaw:
     image: coollabsio/openclaw:latest
+    container_name: openclaw
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
+      # Uncomment next line only if you need direct gateway access from LAN
+      # - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"
     environment:
       # Provider (at least one required)
       #- ANTHROPIC_API_KEY=sk-ant-...
@@ -24,26 +27,30 @@ services:
       - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY}
       - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}      
     volumes:
-      - openclaw-data:/data
-      # Optional: custom JSON config for complex settings (groups, plugins, etc.)
-      # - ./my-openclaw.json:/app/config/openclaw.json
+      - ./data/openclaw:/data
+      # Optional: mount custom config if you have advanced settings
+      # - ./openclaw.json:/app/config/openclaw.json:ro
     depends_on:
       - browser
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   browser:
     image: coollabsio/openclaw-browser:latest
-    # No port exposure needed — proxied via openclaw at /browser/
+    container_name: openclaw-browser
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
       - CHROME_CLI=--remote-debugging-port=9222
     volumes:
-      - browser-data:/config
+      - ./data/browser:/config
     shm_size: 2g
     restart: unless-stopped
 
-volumes:
-  openclaw-data:
-  browser-data:
+# No volumes section needed when using bind mounts
