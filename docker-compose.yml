@@ -1,6 +1,6 @@
 services:
   openclaw:
-    image: coollabsio/openclaw:latest
+    image: openclaw:qmd
     container_name: openclaw
     ports:
       - "${PORT:-8080}:${PORT:-8080}"

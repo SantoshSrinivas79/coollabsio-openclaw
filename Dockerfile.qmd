@@ -1,0 +1,14 @@
+FROM coollabsio/openclaw:latest
+
+# Install required runtime deps
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      ca-certificates curl unzip sqlite3 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install QMD globally via npm (more reliable than bun global in containers)
+# Node/npm are already present in the base image (your logs show Node.js v22.x)
+RUN npm install -g @tobilu/qmd
+
+# Confirm install
+RUN which qmd && qmd --help >/dev/null
