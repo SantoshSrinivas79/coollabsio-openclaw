@@ -16,6 +16,15 @@ services:
       - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY}
       - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}
       - BROWSER_CDP_URL=http://browser:9222
+      # Provider (at least one required)
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY}
+      - OPENCLAW_PRIMARY_MODEL=opencode/kimi-k2.5
+      # Auth
+      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      # Browser sidecar
+      - BROWSER_CDP_URL=http://browser:9223
       - BROWSER_DEFAULT_PROFILE=openclaw
       - BROWSER_EVALUATE_ENABLED=true
       # - HOOKS_ENABLED=true
