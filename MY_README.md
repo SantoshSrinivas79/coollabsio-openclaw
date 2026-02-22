@@ -355,3 +355,7 @@ They contain:
 8. (Optional) do OpenAI OAuth login
 
 Source: https://chatgpt.com/c/699029eb-23c4-83a7-b76b-6284f6e5c77d
+
+
+For Docker AND Mission Control networking. Read this. 
+https://chatgpt.com/c/6999cf61-7aa0-83a9-bb6b-2672c1ca3bbb

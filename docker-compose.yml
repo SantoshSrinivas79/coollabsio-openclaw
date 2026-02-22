@@ -4,8 +4,8 @@ services:
     container_name: openclaw
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
-      # Uncomment next line only if you need direct gateway access from LAN
-      # - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"
+      # Gateway: keep host-local only (safer). Mission Control can use ws://host.docker.internal:18789
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"
     environment:
       # Provider (at least one required)
       #- ANTHROPIC_API_KEY=sk-ant-...
@@ -15,9 +15,15 @@ services:
       # Auth
       - AUTH_USERNAME=${AUTH_USERNAME}
       - AUTH_PASSWORD=${AUTH_PASSWORD}
+
+      # Gateway
+      # IMPORTANT: lan is required if you publish 18789 (even to localhost) so it binds 0.0.0.0 in container
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-lan}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT:-18789}
+
       # Browser sidecar
-      - BROWSER_CDP_URL=http://browser:9223
+      - BROWSER_CDP_URL=http://browser:9222
       - BROWSER_DEFAULT_PROFILE=openclaw
       - BROWSER_EVALUATE_ENABLED=true
       # Hooks (optional)
@@ -25,7 +31,11 @@ services:
       # - HOOKS_TOKEN=my-hook-secret
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY}
-      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}      
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM}
+
+      # Optional: if you want OpenClaw to persist state explicitly here
+      - OPENCLAW_STATE_DIR=${OPENCLAW_STATE_DIR}
+
     volumes:
       - ./data/openclaw:/data
       # Optional: mount custom config if you have advanced settings
