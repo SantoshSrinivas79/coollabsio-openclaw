@@ -243,8 +243,70 @@ services:
       - ./scripts/mentor_memory_rollup.py:/app/mentor_memory_rollup.py:ro
     command: >
       sh -lc 'while true; do
-      python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents main mentor --memory-dir /mentor_data/workspace/memory --timezone "$${MENTOR_MEMORY_TIMEZONE}";
+      python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents main mentor --memory-dir /mentor_data/workspace/memory --log-title "Mentor Memory Log" --timezone "$${MENTOR_MEMORY_TIMEZONE}";
       sleep "$${MENTOR_MEMORY_SYNC_INTERVAL_SECONDS}";
+      done'
+    restart: unless-stopped
+
+  openclaw-agency-ops:
+    image: openclaw:qmd
+    container_name: openclaw-agency-ops
+    ports:
+      - "${OPENCLAW_AGENCY_OPS_PORT:-8083}:8080"
+      - "127.0.0.1:${OPENCLAW_AGENCY_OPS_GATEWAY_PORT:-18792}:${OPENCLAW_AGENCY_OPS_GATEWAY_PORT:-18792}"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_PRIMARY_MODEL=${OPENCLAW_AGENCY_OPS_MODEL:-openrouter/moonshotai/kimi-k2.5}
+      - AUTH_USERNAME=${OPENCLAW_AGENCY_OPS_AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${OPENCLAW_AGENCY_OPS_AUTH_PASSWORD:-}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_AGENCY_OPS_GATEWAY_BIND:-lan}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_AGENCY_OPS_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_AGENCY_OPS_GATEWAY_PORT:-18792}
+      - BROWSER_CDP_URL=http://browser-agency-ops:9222
+      - BROWSER_DEFAULT_PROFILE=openclaw-agency-ops
+      - BROWSER_EVALUATE_ENABLED=true
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN_AGENCY_OPS:-}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY_AGENCY_OPS:-allowlist}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM_AGENCY_OPS:-}
+      - OPENCLAW_STATE_DIR=${OPENCLAW_AGENCY_OPS_STATE_DIR:-/data/.openclaw}
+    volumes:
+      - ./data/openclaw_agency_ops:/data
+    depends_on:
+      - browser-agency-ops
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  browser-agency-ops:
+    image: coollabsio/openclaw-browser:latest
+    container_name: openclaw-browser-agency-ops
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - CHROME_CLI=--remote-debugging-port=9222
+    volumes:
+      - ./data/browser_agency_ops:/config
+    shm_size: 2g
+    restart: unless-stopped
+
+  agency_ops_memory:
+    image: python:3.12-slim
+    container_name: agency-ops-memory-sync
+    environment:
+      - AGENCY_OPS_MEMORY_TIMEZONE=${AGENCY_OPS_MEMORY_TIMEZONE:-UTC}
+      - AGENCY_OPS_MEMORY_SYNC_INTERVAL_SECONDS=${AGENCY_OPS_MEMORY_SYNC_INTERVAL_SECONDS:-300}
+    volumes:
+      - ./data/openclaw_agency_ops:/mentor_data
+      - ./scripts/mentor_memory_rollup.py:/app/mentor_memory_rollup.py:ro
+    command: >
+      sh -lc 'while true; do
+      python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents main tracy --memory-dir /mentor_data/workspace/memory --log-title "Agency Ops Memory Log" --timezone "$${AGENCY_OPS_MEMORY_TIMEZONE}";
+      sleep "$${AGENCY_OPS_MEMORY_SYNC_INTERVAL_SECONDS}";
       done'
     restart: unless-stopped
 
