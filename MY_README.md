@@ -61,9 +61,34 @@ Open `.env` and set **your real values**.
 * `AUTH_USERNAME` / `AUTH_PASSWORD`
 * `OPENCLAW_GATEWAY_TOKEN` (any random string/uuid is fine)
 * `TELEGRAM_BOT_TOKEN`
+* `TELEGRAM_BOT_TOKEN_CMTEAM` (recommended: separate bot token for cm_team control plane)
 * `TELEGRAM_ALLOW_FROM` (your Telegram username or user id)
+* `TELEGRAM_ALLOWED_USER_ID` (numeric Telegram ID for `cm_team` review commands, e.g. `977795179`)
 
 **Security note:** do **not** commit `.env` to git. Also rotate any tokens that were ever pasted/shared.
+
+### `cm_team` Telegram approval gate
+
+`openclaw` and `cm_team` use different Telegram allowlist variables:
+
+* OpenClaw bot allowlist: `TELEGRAM_ALLOW_FROM`
+* `cm_team` review/approval allowlist: `TELEGRAM_ALLOWED_USER_ID`
+* `cm_team` bot token: `TELEGRAM_BOT_TOKEN_CMTEAM`
+* `cm_team` command namespace: `TELEGRAM_COMMAND_NAMESPACE` (default `cm`, e.g. `/cm_status`, `/cm_approve`)
+
+Use a different token from `TELEGRAM_BOT_TOKEN` to avoid Telegram `getUpdates` collisions between OpenClaw and `cm_team`.
+
+Set both if you use the orchestration pipeline. After editing `.env`, apply changes:
+
+```bash
+docker compose up -d cm_team
+```
+
+Verify inside `cm_team`:
+
+```bash
+docker exec cm-team-cron /bin/bash -lc 'grep TELEGRAM_ALLOWED_USER_ID /workspace/.cm_team_env.sh'
+```
 
 ---
 

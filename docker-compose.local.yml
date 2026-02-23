@@ -31,6 +31,7 @@ services:
       # - HOOKS_TOKEN=${HOOKS_TOKEN}
     volumes:
       - ./data/openclaw:/data
+      - ./data/cm_team:/data/cm_team
       # Optional: mount custom config if you have advanced settings
       # - ./openclaw.json:/app/config/openclaw.json:ro
     depends_on:
@@ -54,6 +55,39 @@ services:
     volumes:
       - ./data/browser:/config
     shm_size: 2g
+    restart: unless-stopped
+
+  cm_team:
+    build:
+      context: .
+      dockerfile: Dockerfile.cm_team.cron
+    container_name: cm-team-cron
+    environment:
+      - WORKSPACE_ROOT=/workspace
+      - REVIEW_WINDOW_SECONDS=${REVIEW_WINDOW_SECONDS:-300}
+      - TASK_TIMEOUT_SECONDS=${TASK_TIMEOUT_SECONDS:-600}
+      - TIMEOUT_POLICY=${TIMEOUT_POLICY:-mark_stale}
+      - EXECUTOR_MODE=${EXECUTOR_MODE:-mock}
+      - EXECUTOR_COMMAND=${EXECUTOR_COMMAND:-/app/cm_team/openclaw_exec.sh {ROLE} "{TASK}" "{RESULT}"}
+      - SOUL_ROOT=${SOUL_ROOT:-/soul}
+      - EXECUTOR_TIMEOUT_SECONDS=${EXECUTOR_TIMEOUT_SECONDS:-240}
+      - OPENCLAW_CONTAINER=${OPENCLAW_CONTAINER:-openclaw}
+      - OPENCLAW_AGENT_TIMEOUT_SECONDS=${OPENCLAW_AGENT_TIMEOUT_SECONDS:-600}
+      - OPENCLAW_AGENT_RESEARCHER=${OPENCLAW_AGENT_RESEARCHER:-researcher}
+      - OPENCLAW_AGENT_COPYWRITER=${OPENCLAW_AGENT_COPYWRITER:-copywriter}
+      - OPENCLAW_AGENT_QA=${OPENCLAW_AGENT_QA:-qa}
+      - OPENCLAW_AGENT_HUMANIZER=${OPENCLAW_AGENT_HUMANIZER:-humanizer}
+      - MIN_RESULT_BYTES=${MIN_RESULT_BYTES:-200}
+      - MAX_REVISIONS=${MAX_REVISIONS:-3}
+      - RUN_POLICY=${RUN_POLICY:-queue}
+      - TELEGRAM_BOT_TOKEN_CMTEAM=${TELEGRAM_BOT_TOKEN_CMTEAM:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USER_ID=${TELEGRAM_ALLOWED_USER_ID:-}
+      - TELEGRAM_COMMAND_NAMESPACE=${TELEGRAM_COMMAND_NAMESPACE:-cm}
+    volumes:
+      - ./data/cm_team:/workspace
+      - ./cm_soul:/soul:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 # No volumes section needed when using bind mounts
