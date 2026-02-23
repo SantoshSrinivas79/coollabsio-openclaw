@@ -42,19 +42,34 @@ ENV_FILE=/workspace/.cm_team_env.sh
 } > "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
 
-cat >/etc/cron.d/cm_team <<'CRON'
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+TICK_INTERVAL_SECONDS="${TICK_INTERVAL_SECONDS:-60}"
 
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/orchestrator.lock /usr/local/bin/python -m cm_team.orchestrator_tick' >> /workspace/logs/orchestrator.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/researcher.lock /usr/local/bin/python -m cm_team.worker_tick --role researcher' >> /workspace/logs/researcher.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/copywriter.lock /usr/local/bin/python -m cm_team.worker_tick --role copywriter' >> /workspace/logs/copywriter.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/qa.lock /usr/local/bin/python -m cm_team.worker_tick --role qa' >> /workspace/logs/qa.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/humanizer.lock /usr/local/bin/python -m cm_team.worker_tick --role humanizer' >> /workspace/logs/humanizer.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.cm_team_env.sh; flock -n /var/lock/cm_team/telegram.lock /usr/local/bin/python -m cm_team.telegram_tick' >> /workspace/logs/telegram.tick.log 2>&1
-CRON
+run_tick() {
+  local lock_path="$1"
+  local cmd="$2"
+  local logfile="$3"
+  /bin/bash -lc "source /workspace/.cm_team_env.sh; flock -n ${lock_path} ${cmd}" >> "${logfile}" 2>&1 || true
+}
 
-chmod 0644 /etc/cron.d/cm_team
-crontab /etc/cron.d/cm_team
+echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') cm_team scheduler started (interval=${TICK_INTERVAL_SECONDS}s)" >> /workspace/logs/orchestrator.tick.log
 
-exec cron -f
+while true; do
+  started_at="$(date +%s)"
+
+  run_tick /var/lock/cm_team/orchestrator.lock "/usr/local/bin/python -m cm_team.orchestrator_tick" /workspace/logs/orchestrator.tick.log &
+  run_tick /var/lock/cm_team/researcher.lock "/usr/local/bin/python -m cm_team.worker_tick --role researcher" /workspace/logs/researcher.tick.log &
+  run_tick /var/lock/cm_team/copywriter.lock "/usr/local/bin/python -m cm_team.worker_tick --role copywriter" /workspace/logs/copywriter.tick.log &
+  run_tick /var/lock/cm_team/qa.lock "/usr/local/bin/python -m cm_team.worker_tick --role qa" /workspace/logs/qa.tick.log &
+  run_tick /var/lock/cm_team/humanizer.lock "/usr/local/bin/python -m cm_team.worker_tick --role humanizer" /workspace/logs/humanizer.tick.log &
+  run_tick /var/lock/cm_team/telegram.lock "/usr/local/bin/python -m cm_team.telegram_tick" /workspace/logs/telegram.tick.log &
+
+  wait
+
+  finished_at="$(date +%s)"
+  elapsed="$((finished_at - started_at))"
+  sleep_for="$((TICK_INTERVAL_SECONDS - elapsed))"
+  if [ "$sleep_for" -lt 1 ]; then
+    sleep_for=1
+  fi
+  sleep "$sleep_for"
+done

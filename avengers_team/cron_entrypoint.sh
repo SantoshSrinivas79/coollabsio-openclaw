@@ -45,21 +45,36 @@ ENV_FILE=/workspace/.avengers_team_env.sh
 } > "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
 
-cat >/etc/cron.d/avengers_team <<'CRON'
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+TICK_INTERVAL_SECONDS="${TICK_INTERVAL_SECONDS:-60}"
 
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/orchestrator.lock /usr/local/bin/python -m avengers_team.orchestrator_tick' >> /workspace/logs/orchestrator.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/captain-america.lock /usr/local/bin/python -m avengers_team.worker_tick --role captain-america' >> /workspace/logs/captain-america.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/alex-hormozi.lock /usr/local/bin/python -m avengers_team.worker_tick --role alex-hormozi' >> /workspace/logs/alex-hormozi.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/brian-tracy.lock /usr/local/bin/python -m avengers_team.worker_tick --role brian-tracy' >> /workspace/logs/brian-tracy.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/april-dunford.lock /usr/local/bin/python -m avengers_team.worker_tick --role april-dunford' >> /workspace/logs/april-dunford.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/russell-brunson.lock /usr/local/bin/python -m avengers_team.worker_tick --role russell-brunson' >> /workspace/logs/russell-brunson.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/steve-blank.lock /usr/local/bin/python -m avengers_team.worker_tick --role steve-blank' >> /workspace/logs/steve-blank.tick.log 2>&1
-* * * * * /bin/bash -lc 'source /workspace/.avengers_team_env.sh; flock -n /var/lock/avengers_team/telegram.lock /usr/local/bin/python -m avengers_team.telegram_tick' >> /workspace/logs/telegram.tick.log 2>&1
-CRON
+run_tick() {
+  local lock_path="$1"
+  local cmd="$2"
+  local logfile="$3"
+  /bin/bash -lc "source /workspace/.avengers_team_env.sh; flock -n ${lock_path} ${cmd}" >> "${logfile}" 2>&1 || true
+}
 
-chmod 0644 /etc/cron.d/avengers_team
-crontab /etc/cron.d/avengers_team
+echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') avengers_team scheduler started (interval=${TICK_INTERVAL_SECONDS}s)" >> /workspace/logs/orchestrator.tick.log
 
-exec cron -f
+while true; do
+  started_at="$(date +%s)"
+
+  run_tick /var/lock/avengers_team/orchestrator.lock "/usr/local/bin/python -m avengers_team.orchestrator_tick" /workspace/logs/orchestrator.tick.log &
+  run_tick /var/lock/avengers_team/captain-america.lock "/usr/local/bin/python -m avengers_team.worker_tick --role captain-america" /workspace/logs/captain-america.tick.log &
+  run_tick /var/lock/avengers_team/alex-hormozi.lock "/usr/local/bin/python -m avengers_team.worker_tick --role alex-hormozi" /workspace/logs/alex-hormozi.tick.log &
+  run_tick /var/lock/avengers_team/brian-tracy.lock "/usr/local/bin/python -m avengers_team.worker_tick --role brian-tracy" /workspace/logs/brian-tracy.tick.log &
+  run_tick /var/lock/avengers_team/april-dunford.lock "/usr/local/bin/python -m avengers_team.worker_tick --role april-dunford" /workspace/logs/april-dunford.tick.log &
+  run_tick /var/lock/avengers_team/russell-brunson.lock "/usr/local/bin/python -m avengers_team.worker_tick --role russell-brunson" /workspace/logs/russell-brunson.tick.log &
+  run_tick /var/lock/avengers_team/steve-blank.lock "/usr/local/bin/python -m avengers_team.worker_tick --role steve-blank" /workspace/logs/steve-blank.tick.log &
+  run_tick /var/lock/avengers_team/telegram.lock "/usr/local/bin/python -m avengers_team.telegram_tick" /workspace/logs/telegram.tick.log &
+
+  wait
+
+  finished_at="$(date +%s)"
+  elapsed="$((finished_at - started_at))"
+  sleep_for="$((TICK_INTERVAL_SECONDS - elapsed))"
+  if [ "$sleep_for" -lt 1 ]; then
+    sleep_for=1
+  fi
+  sleep "$sleep_for"
+done
