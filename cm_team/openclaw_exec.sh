@@ -12,6 +12,7 @@ OPENCLAW_RETRY_DELAY_SECONDS="${OPENCLAW_EXEC_RETRY_DELAY_SECONDS:-4}"
 OPENCLAW_SESSION_MODE="${OPENCLAW_SESSION_MODE:-isolated}"
 OPENCLAW_RESET_AGENT_SESSION="${OPENCLAW_RESET_AGENT_SESSION:-1}"
 OPENCLAW_PREFER_WORKSPACE_RESULT="${OPENCLAW_PREFER_WORKSPACE_RESULT:-1}"
+OPENCLAW_CLEAR_WORKSPACE_RESULT_BEFORE_RUN="${OPENCLAW_CLEAR_WORKSPACE_RESULT_BEFORE_RUN:-1}"
 
 case "$ROLE" in
   researcher) AGENT_ID="${OPENCLAW_AGENT_RESEARCHER:-researcher}" ;;
@@ -41,6 +42,8 @@ TMP_JSON="$(mktemp)"
 TMP_ERR="$(mktemp)"
 TMP_WS_RESULT="$(mktemp)"
 trap 'rm -f "$TMP_JSON" "$TMP_ERR" "$TMP_WS_RESULT"' EXIT
+RUN_STARTED_EPOCH="$(date +%s)"
+WS_RESULT_PATH="/data/workspace/agents/cm/${AGENT_ID}/result.md"
 
 SESSION_ARG=()
 if [ "$OPENCLAW_SESSION_MODE" != "shared" ]; then
@@ -59,6 +62,11 @@ if [ "$OPENCLAW_SESSION_MODE" != "shared" ] && [ "$OPENCLAW_RESET_AGENT_SESSION"
       find "$base" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
     fi
   ' >/dev/null 2>&1 || true
+fi
+
+# Avoid leaking stale workspace artifacts across runs when task ids repeat (T-0002, T-0003, ...).
+if [ "$OPENCLAW_PREFER_WORKSPACE_RESULT" = "1" ] && [ "$OPENCLAW_CLEAR_WORKSPACE_RESULT_BEFORE_RUN" = "1" ]; then
+  docker exec "$OPENCLAW_CONTAINER" sh -lc "rm -f \"$WS_RESULT_PATH\"" >/dev/null 2>&1 || true
 fi
 
 attempt=1
@@ -92,8 +100,24 @@ done
 
 # Prefer agent workspace artifact when available; many agent workflows save final deliverable there.
 if [ "$OPENCLAW_PREFER_WORKSPACE_RESULT" = "1" ]; then
-  WS_RESULT_PATH="/data/workspace/agents/cm/${AGENT_ID}/result.md"
-  docker exec "$OPENCLAW_CONTAINER" sh -lc "test -s \"$WS_RESULT_PATH\" && cat \"$WS_RESULT_PATH\"" >"$TMP_WS_RESULT" 2>/dev/null || true
+  WS_MTIME="$(
+    docker exec "$OPENCLAW_CONTAINER" sh -lc '
+      p="$1"
+      if [ ! -s "$p" ]; then
+        exit 0
+      fi
+      if stat -c %Y "$p" >/dev/null 2>&1; then
+        stat -c %Y "$p"
+      elif stat -f %m "$p" >/dev/null 2>&1; then
+        stat -f %m "$p"
+      fi
+    ' sh "$WS_RESULT_PATH" 2>/dev/null || true
+  )"
+  if [ -n "${WS_MTIME:-}" ] && [ "$WS_MTIME" -ge "$RUN_STARTED_EPOCH" ]; then
+    docker exec "$OPENCLAW_CONTAINER" sh -lc "test -s \"$WS_RESULT_PATH\" && cat \"$WS_RESULT_PATH\"" >"$TMP_WS_RESULT" 2>/dev/null || true
+  else
+    echo "openclaw_exec: skipping stale workspace result for ${AGENT_ID} (mtime=${WS_MTIME:-none}, run_started=${RUN_STARTED_EPOCH})" >&2
+  fi
 fi
 
 python3 - "$TMP_JSON" "$OUT_FILE" "$TMP_WS_RESULT" <<'PY'

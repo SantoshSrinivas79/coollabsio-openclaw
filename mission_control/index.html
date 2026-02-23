@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mission Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['IBM Plex Sans', 'ui-sans-serif', 'sans-serif'],
+              mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+            },
+            colors: {
+              base: '#f3f6f8',
+              panel: '#ffffff',
+              line: '#d8e0e6',
+              accent: '#0f766e',
+              ink: '#0f172a',
+            },
+            boxShadow: {
+              panel: '0 10px 24px rgba(15, 23, 42, 0.08)',
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-base text-ink min-h-screen">
+    <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,#e6f6f4_0%,transparent_35%),radial-gradient(circle_at_top_right,#eaf1ff_0%,transparent_40%)]">
+      <main class="mx-auto w-full max-w-[1800px] px-4 py-5 md:px-8 md:py-7">
+        <header class="mb-5 rounded-2xl border border-line bg-panel/90 p-4 shadow-panel backdrop-blur md:p-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">Operations</p>
+              <h1 class="mt-1 text-2xl font-semibold md:text-3xl">Mission Control</h1>
+              <p id="summary" class="mt-2 text-sm text-slate-600">Loading instances...</p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 lg:flex lg:items-end">
+              <label class="text-sm">
+                <span class="mb-1 block text-slate-600">Instance</span>
+                <select id="instanceSelect" class="w-full min-w-52 rounded-xl border border-line bg-white px-3 py-2 focus:border-accent focus:outline-none"></select>
+              </label>
+              <label class="text-sm">
+                <span class="mb-1 block text-slate-600">Run</span>
+                <select id="runSelect" class="w-full min-w-52 rounded-xl border border-line bg-white px-3 py-2 focus:border-accent focus:outline-none"></select>
+              </label>
+              <button id="refreshBtn" class="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-medium hover:bg-slate-100">Refresh</button>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:grid-cols-8" id="stats"></div>
+        </header>
+
+        <section class="mb-5 grid gap-4 xl:grid-cols-2">
+          <article class="rounded-2xl border border-line bg-panel/90 p-4 shadow-panel">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Run Sequence</h2>
+            <p class="mt-1 text-xs text-slate-500">Tasks in chronological order for the selected run. Use the eye button for focused markdown reading.</p>
+            <div id="runSequence" class="mt-3 max-h-[360px] space-y-2 overflow-auto"></div>
+          </article>
+          <article class="rounded-2xl border border-line bg-panel/90 p-4 shadow-panel">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Run Final Output</h2>
+            <p class="mt-1 text-xs text-slate-500">Selected run context and final markdown.</p>
+            <div class="mt-2 flex items-center justify-between">
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Run Request</p>
+              <button id="previewRunRequest" class="rounded-md border border-line px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50">Eye</button>
+            </div>
+            <pre id="runRequest" class="mt-3 max-h-28 overflow-auto rounded-lg border border-line bg-slate-50 p-2 text-xs text-slate-700"></pre>
+            <div class="mt-2 flex items-center justify-between">
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Run Status</p>
+              <button id="previewRunStatus" class="rounded-md border border-line px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50">Eye</button>
+            </div>
+            <pre id="runStatus" class="mt-2 max-h-28 overflow-auto rounded-lg border border-line bg-slate-50 p-2 text-xs text-slate-700"></pre>
+            <div class="mt-2 flex items-center justify-between">
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Run Final</p>
+              <button id="previewRunFinal" class="rounded-md border border-line px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50">Eye</button>
+            </div>
+            <pre id="runFinal" class="mt-2 max-h-[170px] overflow-auto rounded-lg border border-line bg-slate-50 p-2 text-xs text-slate-700"></pre>
+          </article>
+        </section>
+
+        <section id="board" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8"></section>
+      </main>
+
+      <aside id="drawer" class="fixed right-0 top-0 z-20 h-full w-full max-w-2xl translate-x-full border-l border-line bg-white shadow-2xl transition-transform duration-300">
+        <div class="flex h-full flex-col">
+          <div class="flex items-start justify-between border-b border-line px-5 py-4">
+            <div>
+              <p id="drawerState" class="font-mono text-xs uppercase tracking-[0.2em] text-slate-500"></p>
+              <h2 id="drawerTitle" class="mt-1 text-lg font-semibold">Task</h2>
+            </div>
+            <button id="closeDrawer" class="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-slate-50">Close</button>
+          </div>
+          <div class="space-y-5 overflow-y-auto px-5 py-4">
+            <div class="grid grid-cols-2 gap-3 text-xs text-slate-600">
+              <p><span class="font-medium text-slate-800">Agent:</span> <span id="drawerAgent"></span></p>
+              <p><span class="font-medium text-slate-800">Priority:</span> <span id="drawerPriority"></span></p>
+              <p><span class="font-medium text-slate-800">Started:</span> <span id="drawerStarted"></span></p>
+              <p><span class="font-medium text-slate-800">Ended:</span> <span id="drawerEnded"></span></p>
+            </div>
+
+            <section>
+              <h3 class="mb-2 text-sm font-semibold">Task Packet (Full Markdown)</h3>
+              <pre id="drawerTask" class="max-h-[34vh] overflow-auto rounded-xl border border-line bg-slate-50 p-3 text-xs text-slate-700"></pre>
+            </section>
+            <section>
+              <h3 class="mb-2 text-sm font-semibold">Task Output (Full Markdown)</h3>
+              <pre id="drawerResult" class="max-h-[34vh] overflow-auto rounded-xl border border-line bg-slate-50 p-3 text-xs text-slate-700"></pre>
+            </section>
+          </div>
+        </div>
+      </aside>
+
+      <div id="previewModal" class="pointer-events-none fixed inset-0 z-30 opacity-0 transition-opacity duration-200">
+        <div id="previewBackdrop" class="absolute inset-0 bg-slate-900/45"></div>
+        <div class="relative mx-auto mt-6 flex h-[92vh] w-[96vw] max-w-6xl flex-col rounded-2xl border border-line bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-line px-4 py-3">
+            <div>
+              <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-slate-500">Markdown Reader</p>
+              <h3 id="previewTitle" class="text-base font-semibold">Task Preview</h3>
+            </div>
+            <button id="closePreview" class="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-slate-50">Close</button>
+          </div>
+          <div class="flex items-center gap-2 border-b border-line px-4 py-2">
+            <button id="previewTabTask" class="rounded-lg border border-line px-3 py-1 text-xs font-medium">Task</button>
+            <button id="previewTabResult" class="rounded-lg border border-line px-3 py-1 text-xs font-medium">Output</button>
+            <button id="previewTabReview" class="rounded-lg border border-line px-3 py-1 text-xs font-medium">Review</button>
+          </div>
+          <div id="previewContent" class="prose prose-slate max-w-none flex-1 overflow-auto px-6 py-4 text-sm"></div>
+        </div>
+      </div>
+
+      <div id="overlay" class="pointer-events-none fixed inset-0 z-10 bg-slate-900/20 opacity-0 transition-opacity duration-300"></div>
+    </div>
+
+    <script>
+      const COLUMN_ORDER = [
+        'queued',
+        'in_progress',
+        'awaiting_review',
+        'done',
+        'failed',
+        'blocked',
+        'stale',
+        'other',
+      ];
+
+      const LABELS = {
+        queued: 'Queued',
+        in_progress: 'In Progress',
+        awaiting_review: 'Awaiting Review',
+        done: 'Done',
+        failed: 'Failed',
+        blocked: 'Blocked',
+        stale: 'Stale',
+        other: 'Other',
+      };
+
+      const BADGES = {
+        queued: 'bg-slate-100 text-slate-700 border-slate-200',
+        in_progress: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+        awaiting_review: 'bg-amber-50 text-amber-700 border-amber-200',
+        done: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        failed: 'bg-rose-50 text-rose-700 border-rose-200',
+        blocked: 'bg-orange-50 text-orange-700 border-orange-200',
+        stale: 'bg-violet-50 text-violet-700 border-violet-200',
+        other: 'bg-slate-100 text-slate-700 border-slate-200',
+      };
+
+      const state = {
+        instances: [],
+        selectedInstance: '',
+        selectedRun: 'current',
+        previewPayload: null,
+        previewTab: 'result',
+      };
+
+      const els = {
+        summary: document.getElementById('summary'),
+        instanceSelect: document.getElementById('instanceSelect'),
+        runSelect: document.getElementById('runSelect'),
+        refreshBtn: document.getElementById('refreshBtn'),
+        board: document.getElementById('board'),
+        stats: document.getElementById('stats'),
+        runSequence: document.getElementById('runSequence'),
+        runRequest: document.getElementById('runRequest'),
+        runStatus: document.getElementById('runStatus'),
+        runFinal: document.getElementById('runFinal'),
+        previewRunRequest: document.getElementById('previewRunRequest'),
+        previewRunStatus: document.getElementById('previewRunStatus'),
+        previewRunFinal: document.getElementById('previewRunFinal'),
+        drawer: document.getElementById('drawer'),
+        overlay: document.getElementById('overlay'),
+        closeDrawer: document.getElementById('closeDrawer'),
+        drawerState: document.getElementById('drawerState'),
+        drawerTitle: document.getElementById('drawerTitle'),
+        drawerAgent: document.getElementById('drawerAgent'),
+        drawerPriority: document.getElementById('drawerPriority'),
+        drawerStarted: document.getElementById('drawerStarted'),
+        drawerEnded: document.getElementById('drawerEnded'),
+        drawerTask: document.getElementById('drawerTask'),
+        drawerResult: document.getElementById('drawerResult'),
+        previewModal: document.getElementById('previewModal'),
+        previewBackdrop: document.getElementById('previewBackdrop'),
+        previewTitle: document.getElementById('previewTitle'),
+        closePreview: document.getElementById('closePreview'),
+        previewTabTask: document.getElementById('previewTabTask'),
+        previewTabResult: document.getElementById('previewTabResult'),
+        previewTabReview: document.getElementById('previewTabReview'),
+        previewContent: document.getElementById('previewContent'),
+      };
+
+      if (window.marked) {
+        window.marked.setOptions({ gfm: true, breaks: false });
+      }
+
+      function fmtDate(value) {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString();
+      }
+
+      function toSafeText(text) {
+        return (text || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+      }
+
+      function markdownToHtml(markdown) {
+        const md = toSafeText(markdown || '');
+        if (!window.marked) {
+          return `<pre>${md}</pre>`;
+        }
+        return window.marked.parse(md || '_No content_');
+      }
+
+      function encodeTaskPayload(task) {
+        return encodeURIComponent(JSON.stringify(task)).replace(/'/g, '%27');
+      }
+
+      function decodeTaskPayload(raw) {
+        return JSON.parse(decodeURIComponent(raw || ''));
+      }
+
+      async function fetchTaskDetail(task) {
+        const taskName = task.task_ref || task.name || '';
+        if (!taskName) {
+          throw new Error('Task folder reference missing for this item.');
+        }
+
+        const params = new URLSearchParams({
+          instance: state.selectedInstance,
+          run: state.selectedRun,
+          task: taskName,
+        });
+        const res = await fetch(`/api/task?${params.toString()}`);
+        if (!res.ok) {
+          throw new Error(`Task detail request failed (${res.status})`);
+        }
+        return await res.json();
+      }
+
+      function cardTemplate(task) {
+        const badge = BADGES[task.state] || BADGES.other;
+        const started = fmtDate(task.started_at);
+        const ended = fmtDate(task.ended_at);
+
+        return `
+          <article class="group cursor-pointer rounded-xl border border-line bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-panel" data-task='${encodeTaskPayload(task)}'>
+            <div class="mb-2 flex items-start justify-between gap-2">
+              <p class="font-mono text-[11px] font-medium text-slate-500">${task.id}</p>
+              <div class="flex items-center gap-1">
+                <button class="rounded-md border border-line px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50" data-preview-task='${encodeTaskPayload(task)}' title="Open markdown reader">Eye</button>
+                <span class="rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge}">${LABELS[task.state] || task.state}</span>
+              </div>
+            </div>
+            <h4 class="line-clamp-2 text-sm font-semibold text-slate-800">${task.objective}</h4>
+            <p class="mt-2 text-xs text-slate-600">Agent: <span class="font-medium">${task.agent}</span></p>
+            <p class="text-xs text-slate-500">Start: ${started}</p>
+            <p class="text-xs text-slate-500">End: ${ended}</p>
+          </article>
+        `;
+      }
+
+      function renderStats(stats = {}) {
+        const keys = ['total', ...COLUMN_ORDER];
+        els.stats.innerHTML = keys
+          .map((key) => {
+            const label = key === 'total' ? 'Total' : LABELS[key] || key;
+            return `
+              <div class="rounded-lg border border-line bg-white px-3 py-2">
+                <p class="text-[11px] uppercase tracking-wide text-slate-500">${label}</p>
+                <p class="mt-1 text-lg font-semibold">${stats[key] ?? 0}</p>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      function renderRunContext(payload) {
+        const ctx = payload.run_context || {};
+        els.runRequest.textContent = toSafeText(ctx.request || 'run_request.md: no content');
+        els.runStatus.textContent = toSafeText(ctx.status || 'status.md: no content');
+        els.runFinal.textContent = toSafeText(ctx.final || 'final.md: no content yet');
+
+        const seq = payload.run_sequence || [];
+        if (!seq.length) {
+          els.runSequence.innerHTML = '<p class="rounded-lg border border-dashed border-line bg-white/70 p-3 text-xs text-slate-500">No tasks in this run.</p>';
+          return;
+        }
+
+        els.runSequence.innerHTML = seq
+          .map((task, idx) => {
+            const badge = BADGES[task.state] || BADGES.other;
+            return `
+              <div class="rounded-lg border border-line bg-white p-3 hover:bg-slate-50">
+                <div class="mb-1 flex items-center justify-between gap-2">
+                  <button class="text-left" data-seq-task='${encodeTaskPayload(task)}'>
+                    <p class="font-mono text-[11px] text-slate-500">${idx + 1}. ${task.id}</p>
+                  </button>
+                  <div class="flex items-center gap-1">
+                    <button class="rounded-md border border-line px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50" data-preview-task='${encodeTaskPayload(task)}' title="Open markdown reader">Eye</button>
+                    <span class="rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge}">${LABELS[task.state] || task.state}</span>
+                  </div>
+                </div>
+                <button class="w-full text-left" data-seq-task='${encodeTaskPayload(task)}'>
+                  <p class="line-clamp-2 text-xs font-medium text-slate-800">${task.objective}</p>
+                  <p class="mt-1 text-[11px] text-slate-600">${task.agent} | start ${fmtDate(task.started_at)} | end ${fmtDate(task.ended_at)}</p>
+                </button>
+              </div>
+            `;
+          })
+          .join('');
+
+        els.runSequence.querySelectorAll('[data-seq-task]').forEach((node) => {
+          node.addEventListener('click', () => {
+            const task = decodeTaskPayload(node.getAttribute('data-seq-task') || '');
+            openDrawer(task);
+          });
+        });
+
+        els.runSequence.querySelectorAll('[data-preview-task]').forEach((node) => {
+          node.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const task = decodeTaskPayload(node.getAttribute('data-preview-task') || '');
+            openPreview(task, 'result');
+          });
+        });
+      }
+
+      function renderBoard(columns = {}) {
+        els.board.innerHTML = COLUMN_ORDER.map((name) => {
+          const items = columns[name] || [];
+          const columnItems = items.length
+            ? items.map((task) => cardTemplate(task)).join('')
+            : '<p class="rounded-xl border border-dashed border-line bg-white/70 p-3 text-xs text-slate-500">No tasks</p>';
+
+          return `
+            <section class="rounded-2xl border border-line bg-panel/90 p-3 shadow-panel">
+              <div class="mb-3 flex items-center justify-between">
+                <h3 class="text-sm font-semibold">${LABELS[name] || name}</h3>
+                <span class="rounded-full border border-line bg-white px-2 py-0.5 text-xs text-slate-600">${items.length}</span>
+              </div>
+              <div class="space-y-2">${columnItems}</div>
+            </section>
+          `;
+        }).join('');
+
+        els.board.querySelectorAll('[data-task]').forEach((node) => {
+          node.addEventListener('click', () => {
+            const task = decodeTaskPayload(node.getAttribute('data-task') || '');
+            openDrawer(task);
+          });
+        });
+
+        els.board.querySelectorAll('[data-preview-task]').forEach((node) => {
+          node.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const task = decodeTaskPayload(node.getAttribute('data-preview-task') || '');
+            openPreview(task, 'result');
+          });
+        });
+      }
+
+      async function openDrawer(task) {
+        els.drawerState.textContent = LABELS[task.state] || task.state;
+        els.drawerTitle.textContent = `${task.id} - ${task.objective}`;
+        els.drawerAgent.textContent = task.agent || '-';
+        els.drawerPriority.textContent = String(task.priority ?? '-');
+        els.drawerStarted.textContent = fmtDate(task.started_at);
+        els.drawerEnded.textContent = fmtDate(task.ended_at);
+        els.drawerTask.textContent = 'Loading full task markdown...';
+        els.drawerResult.textContent = 'Loading full output markdown...';
+
+        els.drawer.classList.remove('translate-x-full');
+        els.overlay.classList.remove('pointer-events-none', 'opacity-0');
+
+        try {
+          const payload = await fetchTaskDetail(task);
+          els.drawerTask.textContent = toSafeText(payload.task_markdown || 'No task.md found.');
+          els.drawerResult.textContent = toSafeText(payload.result_markdown || 'No result.md found yet.');
+        } catch (err) {
+          const msg = `Failed to load task markdown: ${String(err)}`;
+          els.drawerTask.textContent = msg;
+          els.drawerResult.textContent = msg;
+        }
+      }
+
+      function closeDrawer() {
+        els.drawer.classList.add('translate-x-full');
+        els.overlay.classList.add('pointer-events-none', 'opacity-0');
+      }
+
+      function setPreviewTab(tab) {
+        state.previewTab = tab;
+        const payload = state.previewPayload;
+        if (!payload) {
+          els.previewContent.innerHTML = '<p>No preview loaded.</p>';
+          return;
+        }
+
+        const tabClasses = ['bg-slate-50', 'text-slate-700', 'border-line'];
+        const activeClasses = ['bg-accent', 'text-white', 'border-accent'];
+        const map = {
+          task: els.previewTabTask,
+          result: els.previewTabResult,
+          review: els.previewTabReview,
+        };
+
+        Object.entries(map).forEach(([name, button]) => {
+          button.classList.remove(...activeClasses);
+          button.classList.add(...tabClasses);
+          if (name === tab) {
+            button.classList.remove(...tabClasses);
+            button.classList.add(...activeClasses);
+          }
+        });
+
+        const source = tab === 'task'
+          ? payload.task_markdown
+          : tab === 'review'
+            ? payload.review_markdown
+            : payload.result_markdown;
+
+        els.previewContent.innerHTML = markdownToHtml(source || 'No markdown available.');
+      }
+
+      async function openPreview(task, initialTab = 'result') {
+        els.previewTitle.textContent = `${task.id || 'Task'} - loading...`;
+        els.previewContent.innerHTML = '<p>Loading markdown...</p>';
+        els.previewModal.classList.remove('pointer-events-none', 'opacity-0');
+
+        try {
+          const payload = await fetchTaskDetail(task);
+          state.previewPayload = payload;
+          els.previewTitle.textContent = `${payload.id || task.id} - ${payload.objective || task.objective || 'Task'}`;
+          setPreviewTab(initialTab);
+        } catch (err) {
+          els.previewContent.innerHTML = `<p>Failed to load markdown: ${String(err)}</p>`;
+        }
+      }
+
+      function closePreview() {
+        els.previewModal.classList.add('pointer-events-none', 'opacity-0');
+      }
+
+      function openPreviewMarkdown(title, markdown) {
+        state.previewPayload = {
+          task_markdown: markdown || '',
+          result_markdown: markdown || '',
+          review_markdown: markdown || '',
+        };
+        els.previewTitle.textContent = title;
+        els.previewModal.classList.remove('pointer-events-none', 'opacity-0');
+        setPreviewTab('result');
+      }
+
+      function findInstance(id) {
+        return state.instances.find((item) => item.id === id);
+      }
+
+      async function loadInstances() {
+        const res = await fetch('/api/instances');
+        const payload = await res.json();
+        state.instances = payload.instances || [];
+
+        if (!state.instances.length) {
+          els.summary.textContent = 'No team run workspaces found under mounted data directory.';
+          els.instanceSelect.innerHTML = '';
+          els.runSelect.innerHTML = '';
+          renderBoard({});
+          renderStats({});
+          renderRunContext({ run_context: {}, run_sequence: [] });
+          return false;
+        }
+
+        if (!findInstance(state.selectedInstance)) {
+          state.selectedInstance = state.instances[0].id;
+        }
+
+        els.instanceSelect.innerHTML = state.instances
+          .map((instance) => `<option value="${instance.id}">${instance.label}</option>`)
+          .join('');
+        els.instanceSelect.value = state.selectedInstance;
+
+        updateRunOptions();
+        return true;
+      }
+
+      function updateRunOptions() {
+        const instance = findInstance(state.selectedInstance);
+        const runs = instance?.runs || [];
+
+        els.runSelect.innerHTML = [
+          '<option value="current">Current Pointer</option>',
+          ...runs.map((run) => `<option value="${run.name}">${run.name}${run.is_current ? ' (current)' : ''}</option>`),
+        ].join('');
+
+        const preferred = runs.find((run) => run.is_current)?.name;
+        if (state.selectedRun !== 'current' && runs.some((run) => run.name === state.selectedRun)) {
+          els.runSelect.value = state.selectedRun;
+        } else {
+          state.selectedRun = preferred || 'current';
+          els.runSelect.value = state.selectedRun;
+        }
+      }
+
+      async function loadBoard() {
+        if (!state.selectedInstance) return;
+
+        const params = new URLSearchParams({
+          instance: state.selectedInstance,
+          run: state.selectedRun,
+        });
+
+        const res = await fetch(`/api/kanban?${params.toString()}`);
+        const payload = await res.json();
+
+        const generatedAt = fmtDate(payload.generated_at);
+        els.summary.textContent = `${payload.instance || '-'} | run ${payload.run || '-'} | last refresh ${generatedAt}`;
+
+        renderStats(payload.stats || {});
+        renderRunContext(payload);
+        renderBoard(payload.columns || {});
+      }
+
+      async function boot() {
+        try {
+          const ok = await loadInstances();
+          if (!ok) return;
+          await loadBoard();
+        } catch (error) {
+          els.summary.textContent = `Failed to load mission control data: ${String(error)}`;
+        }
+      }
+
+      els.instanceSelect.addEventListener('change', async (event) => {
+        state.selectedInstance = event.target.value;
+        state.selectedRun = 'current';
+        updateRunOptions();
+        await loadBoard();
+      });
+
+      els.runSelect.addEventListener('change', async (event) => {
+        state.selectedRun = event.target.value;
+        await loadBoard();
+      });
+
+      els.refreshBtn.addEventListener('click', boot);
+      els.closeDrawer.addEventListener('click', closeDrawer);
+      els.overlay.addEventListener('click', closeDrawer);
+
+      els.closePreview.addEventListener('click', closePreview);
+      els.previewBackdrop.addEventListener('click', closePreview);
+      els.previewTabTask.addEventListener('click', () => setPreviewTab('task'));
+      els.previewTabResult.addEventListener('click', () => setPreviewTab('result'));
+      els.previewTabReview.addEventListener('click', () => setPreviewTab('review'));
+      els.previewRunRequest.addEventListener('click', () => openPreviewMarkdown('Run Request', els.runRequest.textContent || ''));
+      els.previewRunStatus.addEventListener('click', () => openPreviewMarkdown('Run Status', els.runStatus.textContent || ''));
+      els.previewRunFinal.addEventListener('click', () => openPreviewMarkdown('Run Final Output', els.runFinal.textContent || ''));
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePreview();
+          closeDrawer();
+        }
+      });
+
+      setInterval(loadBoard, 12000);
+      boot();
+    </script>
+  </body>
+</html>

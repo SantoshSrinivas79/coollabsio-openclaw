@@ -1,0 +1,12 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY mission_control /app/mission_control
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MISSION_CONTROL_PORT=8099 \
+    MISSION_CONTROL_DATA_ROOT=/data
+
+EXPOSE 8099
+CMD ["python", "/app/mission_control/app.py"]

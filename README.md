@@ -32,6 +32,18 @@ docker compose up -d
 
 1. **Openclaw UI** — `http://localhost:8080` (login: your `AUTH_USERNAME` / `AUTH_PASSWORD`)
 2. **Browser desktop** — `http://localhost:8080/browser/` (login: your `AUTH_USERNAME` / browser `PASSWORD`) — use this to log into sites that need auth (OAuth, 2FA, captchas). Openclaw reuses the session via CDP.
+3. **Mission Control** — `http://localhost:8099` (multi-instance Kanban board for team tasks and outputs)
+
+### Mission Control (Kanban)
+
+Mission Control is a separate read-only app that shows task flow across team workspaces mounted under `./data` (for example `cm_team` and `avengers_team`).
+
+- Service: `mission_control`
+- Default port: `8099` (override with `MISSION_CONTROL_PORT`)
+- Data source: `./data` mounted read-only into the app
+- API endpoints:
+  - `GET /api/instances` — discovered instances and runs
+  - `GET /api/kanban?instance=<id>&run=<name|current>` — Kanban payload
 
 ## Architecture
 

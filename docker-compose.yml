@@ -310,4 +310,18 @@ services:
       done'
     restart: unless-stopped
 
+  mission_control:
+    build:
+      context: .
+      dockerfile: Dockerfile.mission_control
+    container_name: openclaw-mission-control
+    environment:
+      - MISSION_CONTROL_PORT=8099
+      - MISSION_CONTROL_DATA_ROOT=/data
+    ports:
+      - "${MISSION_CONTROL_PORT:-8099}:8099"
+    volumes:
+      - ./data:/data:ro
+    restart: unless-stopped
+
 # No volumes section needed when using bind mounts
