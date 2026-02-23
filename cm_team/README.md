@@ -69,3 +69,6 @@ If you edit wrapper/env integration only, a fast restart is enough:
 ```bash
 docker compose restart cm_team
 ```
+
+## Best Practices
+- See `BEST_PRACTICES.md` for security, queue, execution, and output standards.

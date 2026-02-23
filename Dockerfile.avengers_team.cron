@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      cron \
+      util-linux \
+      ca-certificates \
+      docker.io \
+      docker-cli && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY avengers_team /app/avengers_team
+RUN chmod +x /app/avengers_team/*.sh
+
+RUN pip install --no-cache-dir pydantic==2.8.2 requests
+
+ENV PYTHONPATH=/app
+ENV WORKSPACE_ROOT=/workspace
+
+ENTRYPOINT ["/app/avengers_team/cron_entrypoint.sh"]
