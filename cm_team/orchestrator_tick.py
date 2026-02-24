@@ -97,6 +97,26 @@ def extract_objective(body: str) -> str:
     return body.strip()
 
 
+def extract_request_context_lines(body: str, max_lines: int = 40) -> list[str]:
+    lines: list[str] = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        lines.append(s)
+
+    if not lines:
+        s = body.strip()
+        return [s] if s else []
+
+    if len(lines) <= max_lines:
+        return lines
+
+    kept = lines[:max_lines]
+    kept.append(f"... ({len(lines) - max_lines} more lines omitted)")
+    return kept
+
+
 def ensure_dirs(workspace: Path) -> None:
     (workspace / "runs").mkdir(parents=True, exist_ok=True)
     (workspace / "logs").mkdir(parents=True, exist_ok=True)
@@ -379,11 +399,14 @@ def maybe_create_pipeline_from_run_request(workspace: Path, tasks_root: Path, ru
     tasks_root = tasks_root_for_run(run_dir)
 
     topic = extract_objective(body)
+    request_lines = extract_request_context_lines(body)
     base_context = [
         "Brand voice: clear, friendly, no hype",
         "Policy: 5-minute review gate, silence => auto-approve",
         f"Objective: {topic}",
+        "Full user brief (multi-line):",
     ]
+    base_context.extend(request_lines)
 
     create_task(
         tasks_root,

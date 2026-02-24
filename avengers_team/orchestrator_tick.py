@@ -98,6 +98,26 @@ def extract_objective(body: str) -> str:
     return body.strip()
 
 
+def extract_request_context_lines(body: str, max_lines: int = 40) -> list[str]:
+    lines: list[str] = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        lines.append(s)
+
+    if not lines:
+        s = body.strip()
+        return [s] if s else []
+
+    if len(lines) <= max_lines:
+        return lines
+
+    kept = lines[:max_lines]
+    kept.append(f"... ({len(lines) - max_lines} more lines omitted)")
+    return kept
+
+
 def ensure_dirs(workspace: Path) -> None:
     (workspace / "runs").mkdir(parents=True, exist_ok=True)
     (workspace / "logs").mkdir(parents=True, exist_ok=True)
@@ -411,14 +431,17 @@ def maybe_create_pipeline_from_run_request(workspace: Path, tasks_root: Path, ru
     tasks_root = tasks_root_for_run(run_dir)
 
     objective = extract_objective(body)
+    request_lines = extract_request_context_lines(body)
     base_context = [
         "Operating model: Captain America is the only user-facing agent.",
         "Run the fixed 3-round advisory protocol: Diverge -> Converge -> Package.",
         "Output style: practical decisions, steps, scripts/templates, metrics, next actions.",
         "Policy: review gate enabled, silence => auto-approve by deadline.",
         f"Objective: {objective}",
-        "If critical context is missing, assume defaults and label assumptions.",
+        "Full user brief (multi-line):",
     ]
+    base_context.extend(request_lines)
+    base_context.append("If critical context is missing, assume defaults and label assumptions.")
 
     r1_ids = {
         "alex-hormozi": "T-0101",
