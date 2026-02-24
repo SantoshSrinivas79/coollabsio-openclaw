@@ -81,6 +81,8 @@ role: {role}
 - Do NOT describe what you are about to do.
 - Do NOT include progress narration (examples: "Let me check...", "I see...", "Task complete...").
 - Do NOT include tool logs, file-save confirmations, or process notes.
+- Do NOT use tools or read any files/paths during this task.
+- Treat this EXECUTION_PACKET as the complete source of truth.
 - If you cannot complete the task, still return RESULT contract with concrete blockers in Risks / Unknowns.
 # END_EXECUTION_PACKET
 """
