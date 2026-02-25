@@ -143,6 +143,12 @@ Quick model switching:
 
 # Example: switch to another LM Studio model
 ./scripts/ollama_vm_model.sh allenai/olmo-3-32b-think
+
+./scripts/ollama_vm_model.sh qwen3.5-27b
+
+./scripts/ollama_vm_model.sh qwen/qwen3.5-35b-a3b
+
+./scripts/ollama_vm_model.sh unsloth/qwen3.5-35b-a3b
 ```
 
 Manual quick switch via `.env`:
