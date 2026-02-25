@@ -135,6 +135,30 @@ Related `.env` keys:
 - `OLLAMA_VM_QMD_AUTO_EMBED`
 - `TELEGRAM_BOT_TOKEN_OLLAMA` (set when you create the bot)
 
+Quick model switching:
+
+```bash
+# Switch model + reload ollama-vm in one command
+./scripts/ollama_vm_model.sh openai/gpt-oss-20b
+
+# Example: switch to another LM Studio model
+./scripts/ollama_vm_model.sh allenai/olmo-3-32b-think
+```
+
+Manual quick switch via `.env`:
+- Update `OLLAMA_VM_MODEL` (or `OLLAMA_VM_OPENCLAW_MODEL`)
+- Optional: update `OLLAMA_VM_PROVIDER`, `OLLAMA_VM_API`, `OLLAMA_VM_BASE_URL`
+
+Reload + verify:
+
+```bash
+docker compose up -d ollama-vm
+docker compose exec -T ollama-vm node -e 'const fs=require("fs");const c=JSON.parse(fs.readFileSync("/vm/.openclaw/openclaw.json","utf8"));console.log(c.agents.defaults.model.primary);'
+```
+
+Telegram note:
+- Send `/new` to start a fresh conversation session on the new model.
+
 ## Architecture
 
 ```

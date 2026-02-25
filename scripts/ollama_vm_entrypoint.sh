@@ -35,7 +35,7 @@ echo "[ollama-vm] config mode available: ollama launch openclaw --config"
 echo "[ollama-vm] gateway bind env: OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-lan}"
 echo "[ollama-vm] gateway port env: OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT:-18789}"
 
-MODEL_ID="${OLLAMA_VM_OPENCLAW_MODEL:-gemma3:4b}"
+MODEL_ID="${OLLAMA_VM_MODEL:-${OLLAMA_VM_OPENCLAW_MODEL:-gemma3:4b}}"
 if [[ "${OLLAMA_VM_AUTO_PULL_MODEL:-1}" == "1" ]]; then
   if ! ollama list | awk 'NR>1 {print $1}' | grep -Fxq "${MODEL_ID}"; then
     echo "[ollama-vm] model '${MODEL_ID}' not found locally, pulling..."

@@ -26,10 +26,10 @@ const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || "18789", 10);
 const gatewayBind = process.env.OPENCLAW_GATEWAY_BIND || "lan";
 const gatewayToken = (process.env.OLLAMA_VM_OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_TOKEN || "").trim();
 
-const modelId = process.env.OLLAMA_VM_OPENCLAW_MODEL || "gemma3:4b";
-const ollamaBase = (process.env.OLLAMA_VM_OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
-const modelApi = (process.env.OLLAMA_VM_MODEL_API || "ollama").trim();
-const modelProviderName = (process.env.OLLAMA_VM_MODEL_PROVIDER || "ollama").trim();
+const modelId = process.env.OLLAMA_VM_MODEL || process.env.OLLAMA_VM_OPENCLAW_MODEL || "gemma3:4b";
+const ollamaBase = (process.env.OLLAMA_VM_BASE_URL || process.env.OLLAMA_VM_OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
+const modelApi = (process.env.OLLAMA_VM_API || process.env.OLLAMA_VM_MODEL_API || "ollama").trim();
+const modelProviderName = (process.env.OLLAMA_VM_PROVIDER || process.env.OLLAMA_VM_MODEL_PROVIDER || "ollama").trim();
 const disableToolsExplicit = process.env.OLLAMA_VM_DISABLE_TOOLS;
 const disableTools = disableToolsExplicit === undefined
   ? /^gemma/i.test(modelId)
