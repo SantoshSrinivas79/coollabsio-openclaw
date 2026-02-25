@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=openclaw-ollama-vm-base:local
+FROM ${BASE_IMAGE}
+
+WORKDIR /vm
+
+COPY scripts/ /app/scripts/
+COPY scripts/ollama_vm_entrypoint.sh /usr/local/bin/ollama_vm_entrypoint.sh
+RUN chmod +x /usr/local/bin/ollama_vm_entrypoint.sh
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/ollama_vm_entrypoint.sh"]

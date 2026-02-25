@@ -45,6 +45,96 @@ Mission Control is a separate read-only app that shows task flow across team wor
   - `GET /api/instances` — discovered instances and runs
   - `GET /api/kanban?instance=<id>&run=<name|current>` — Kanban payload
 
+### OpenClaw Vivvi Instance
+
+`docker-compose.yml` includes a dedicated client instance named `openclaw-vivvi` plus:
+- `browser-vivvi` sidecar (persistent browser profile)
+- `vivvi_memory` sync worker (daily memory rollups for QMD retrieval)
+
+Recommended startup:
+
+```bash
+docker compose up -d --build openclaw-vivvi browser-vivvi vivvi_memory
+```
+
+Set these variables in `.env` (see `.env.example`):
+- `OPENCLAW_VIVVI_GATEWAY_TOKEN` (required, keep secret)
+- `OPENCLAW_VIVVI_AUTH_PASSWORD` (strong password)
+- `TELEGRAM_BOT_TOKEN_VIVVI` (use a dedicated bot token)
+- `TELEGRAM_ALLOW_FROM_VIVVI` (explicit allowlist)
+- `TELEGRAM_GROUP_ALLOW_FROM_VIVVI` (if group chats are enabled)
+
+Best-practice defaults baked into the Vivvi instance:
+- QMD-enabled image (`openclaw:qmd`)
+- Isolated state (`./data/openclaw_vivvi`)
+- Bi-directional Telegram config exposed via dedicated `*_VIVVI` env vars
+- Memory rollups every 5 minutes to `./data/openclaw_vivvi/workspace/memory`
+
+Optional QMD warm-up:
+
+```bash
+docker compose exec openclaw-vivvi sh -lc 'qmd update && qmd embed'
+```
+
+### Ollama VM Instance (Persistent Local OpenClaw)
+
+`docker-compose.yml` includes a dedicated VM-style container (`ollama-vm`) backed by local disk state. OpenClaw is configured and started non-interactively at container boot, with Ollama as the model provider.
+
+Build the local base image once (pins dependencies locally):
+
+```bash
+docker compose --profile vm-build build ollama-vm-base
+```
+
+Then build/run the VM image from that local base:
+
+```bash
+docker compose up -d --build ollama-vm
+```
+
+After the first build, start quickly without rebuilding:
+
+```bash
+docker compose up -d ollama-vm
+```
+
+Optional manual shell inside VM:
+
+```bash
+docker compose exec ollama-vm bash
+```
+
+Default host mappings:
+- Ollama API: `http://localhost:${OLLAMA_VM_PORT:-11434}`
+- OpenClaw gateway: `http://localhost:${OLLAMA_VM_OPENCLAW_PORT:-18794}`
+
+Persistence on local machine:
+- `./data/ollama_vm` -> VM workspace + OpenClaw state
+- `./data/ollama_vm/.ollama` -> Ollama package/model cache (prevents re-downloads)
+- Local image tags: `openclaw-ollama-vm-base:local` and `openclaw-ollama-vm:local` (compose `pull_policy: never`)
+- Browser profile: `./data/browser_ollama` (CDP sidecar session persistence)
+
+QMD and memory defaults:
+- QMD is installed in the Ollama VM image (`qmd` CLI available)
+- Startup can run `qmd update` and `qmd embed` automatically (`OLLAMA_VM_QMD_AUTO_SETUP`, `OLLAMA_VM_QMD_AUTO_EMBED`)
+- `ollama_vm_memory` service rolls up sessions into workspace memory logs for retrieval
+
+Related `.env` keys:
+- `OLLAMA_VM_BASE_IMAGE`
+- `OLLAMA_VM_IMAGE`
+- `OLLAMA_VM_PORT`
+- `OLLAMA_VM_OPENCLAW_PORT`
+- `OLLAMA_VM_OPENCLAW_GATEWAY_PORT`
+- `OLLAMA_VM_OPENCLAW_GATEWAY_BIND`
+- `OLLAMA_VM_OPENCLAW_GATEWAY_TOKEN`
+- `OLLAMA_VM_OPENCLAW_MODEL`
+- `OLLAMA_VM_OPENCLAW_ALLOWED_ORIGINS`
+- `OLLAMA_VM_OLLAMA_MODELS`
+- `OLLAMA_VM_START_OPENCLAW`
+- `OLLAMA_VM_QMD_AUTO_SETUP`
+- `OLLAMA_VM_QMD_AUTO_EMBED`
+- `TELEGRAM_BOT_TOKEN_OLLAMA` (set when you create the bot)
+
 ## Architecture
 
 ```

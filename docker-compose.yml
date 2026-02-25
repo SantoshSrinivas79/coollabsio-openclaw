@@ -64,6 +64,120 @@ services:
     shm_size: 2g
     restart: unless-stopped
 
+  ollama-vm-base:
+    image: ${OLLAMA_VM_BASE_IMAGE:-openclaw-ollama-vm-base:local}
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama_vm.base
+    command: ["sh", "-lc", "sleep infinity"]
+    profiles: ["vm-build"]
+
+  ollama-vm:
+    image: ${OLLAMA_VM_IMAGE:-openclaw-ollama-vm:local}
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama_vm
+      args:
+        BASE_IMAGE: ${OLLAMA_VM_BASE_IMAGE:-openclaw-ollama-vm-base:local}
+    container_name: ollama-vm
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_MODELS=${OLLAMA_VM_OLLAMA_MODELS:-/vm/.ollama/models}
+      - OLLAMA_VM_OPENCLAW_HOME=${OLLAMA_VM_OPENCLAW_HOME:-/vm/.openclaw}
+      - OLLAMA_VM_OPENCLAW_CONFIG_PATH=${OLLAMA_VM_OPENCLAW_CONFIG_PATH:-/vm/.openclaw/openclaw.json}
+      - OLLAMA_VM_OPENCLAW_MODEL=${OLLAMA_VM_OPENCLAW_MODEL:-openai/gpt-oss-20b}
+      - OLLAMA_VM_MODEL_PROVIDER=${OLLAMA_VM_MODEL_PROVIDER:-lmstudio}
+      - OLLAMA_VM_MODEL_API=${OLLAMA_VM_MODEL_API:-openai-completions}
+      - OLLAMA_VM_OLLAMA_BASE_URL=${OLLAMA_VM_OLLAMA_BASE_URL:-http://host.docker.internal:1234}
+      - OLLAMA_VM_AUTO_PULL_MODEL=${OLLAMA_VM_AUTO_PULL_MODEL:-0}
+      - OLLAMA_VM_SKIP_BOOTSTRAP=${OLLAMA_VM_SKIP_BOOTSTRAP:-1}
+      - OLLAMA_VM_DISABLE_TOOLS=${OLLAMA_VM_DISABLE_TOOLS:-1}
+      - OLLAMA_VM_OPENCLAW_GATEWAY_TOKEN=${OLLAMA_VM_OPENCLAW_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_BIND=${OLLAMA_VM_OPENCLAW_GATEWAY_BIND:-lan}
+      - OPENCLAW_GATEWAY_PORT=${OLLAMA_VM_OPENCLAW_GATEWAY_PORT:-18789}
+      - OLLAMA_VM_OPENCLAW_ALLOWED_ORIGINS=${OLLAMA_VM_OPENCLAW_ALLOWED_ORIGINS:-http://127.0.0.1:${OLLAMA_VM_OPENCLAW_PORT:-18794},http://localhost:${OLLAMA_VM_OPENCLAW_PORT:-18794}}
+      - OPENCLAW_STATE_DIR=${OLLAMA_VM_OPENCLAW_STATE_DIR:-/vm/.openclaw}
+      - OPENCLAW_WORKSPACE_DIR=${OLLAMA_VM_OPENCLAW_WORKSPACE_DIR:-/vm/workspace}
+      - OLLAMA_VM_START_OPENCLAW=${OLLAMA_VM_START_OPENCLAW:-1}
+      - OLLAMA_VM_QMD_AUTO_SETUP=${OLLAMA_VM_QMD_AUTO_SETUP:-1}
+      - OLLAMA_VM_QMD_AUTO_EMBED=${OLLAMA_VM_QMD_AUTO_EMBED:-1}
+      - OLLAMA_VM_BROWSER_CDP_URL=${OLLAMA_VM_BROWSER_CDP_URL:-http://browser-ollama:9222}
+      - BROWSER_CDP_URL=${OLLAMA_VM_BROWSER_CDP_URL:-http://browser-ollama:9222}
+      - BROWSER_DEFAULT_PROFILE=${OLLAMA_VM_BROWSER_DEFAULT_PROFILE:-openclaw-ollama}
+      - BROWSER_EVALUATE_ENABLED=${OLLAMA_VM_BROWSER_EVALUATE_ENABLED:-true}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN_OLLAMA:-}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY_OLLAMA:-allowlist}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM_OLLAMA:-}
+      - TELEGRAM_GROUP_POLICY=${TELEGRAM_GROUP_POLICY_OLLAMA:-allowlist}
+      - TELEGRAM_GROUP_ALLOW_FROM=${TELEGRAM_GROUP_ALLOW_FROM_OLLAMA:-}
+      - TELEGRAM_REPLY_TO_MODE=${TELEGRAM_REPLY_TO_MODE_OLLAMA:-all}
+      - TELEGRAM_CHUNK_MODE=${TELEGRAM_CHUNK_MODE_OLLAMA:-newline}
+      - TELEGRAM_TEXT_CHUNK_LIMIT=${TELEGRAM_TEXT_CHUNK_LIMIT_OLLAMA:-3500}
+      - TELEGRAM_STREAM_MODE=${TELEGRAM_STREAM_MODE_OLLAMA:-partial}
+      - TELEGRAM_LINK_PREVIEW=${TELEGRAM_LINK_PREVIEW_OLLAMA:-false}
+      - TELEGRAM_MEDIA_MAX_MB=${TELEGRAM_MEDIA_MAX_MB_OLLAMA:-10}
+      - TELEGRAM_REACTION_NOTIFICATIONS=${TELEGRAM_REACTION_NOTIFICATIONS_OLLAMA:-own}
+      - TELEGRAM_REACTION_LEVEL=${TELEGRAM_REACTION_LEVEL_OLLAMA:-minimal}
+      - TELEGRAM_INLINE_BUTTONS=${TELEGRAM_INLINE_BUTTONS_OLLAMA:-allowlist}
+      - TELEGRAM_ACTIONS_REACTIONS=${TELEGRAM_ACTIONS_REACTIONS_OLLAMA:-true}
+      - TELEGRAM_ACTIONS_STICKER=${TELEGRAM_ACTIONS_STICKER_OLLAMA:-false}
+      - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL_OLLAMA:-}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET_OLLAMA:-}
+      - TELEGRAM_WEBHOOK_PATH=${TELEGRAM_WEBHOOK_PATH_OLLAMA:-/telegram-webhook}
+      - TELEGRAM_MESSAGE_PREFIX=${TELEGRAM_MESSAGE_PREFIX_OLLAMA:-}
+    volumes:
+      - ./data/ollama_vm:/vm
+      - ./data/ollama_vm/.ollama:/root/.ollama
+    ports:
+      - "${OLLAMA_VM_PORT:-11434}:11434"
+      - "127.0.0.1:${OLLAMA_VM_OPENCLAW_PORT:-18794}:${OLLAMA_VM_OPENCLAW_GATEWAY_PORT:-18789}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - browser-ollama
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  browser-ollama:
+    image: coollabsio/openclaw-browser:latest
+    container_name: openclaw-browser-ollama
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - CHROME_CLI=--remote-debugging-port=9222
+    volumes:
+      - ./data/browser_ollama:/config
+    shm_size: 2g
+    restart: unless-stopped
+
+  ollama_vm_memory:
+    image: python:3.12-slim
+    container_name: ollama-vm-memory-sync
+    environment:
+      - OLLAMA_VM_MEMORY_TIMEZONE=${OLLAMA_VM_MEMORY_TIMEZONE:-UTC}
+      - OLLAMA_VM_MEMORY_SYNC_INTERVAL_SECONDS=${OLLAMA_VM_MEMORY_SYNC_INTERVAL_SECONDS:-300}
+      - OLLAMA_VM_MEMORY_AGENTS=${OLLAMA_VM_MEMORY_AGENTS:-main}
+    volumes:
+      - ./data/ollama_vm:/mentor_data
+      - ./scripts/mentor_memory_rollup.py:/app/mentor_memory_rollup.py:ro
+    command: >
+      sh -lc 'while true; do
+      python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents $${OLLAMA_VM_MEMORY_AGENTS} --memory-dir /mentor_data/workspace/memory --log-title "Ollama VM Memory Log" --timezone "$${OLLAMA_VM_MEMORY_TIMEZONE}";
+      sleep "$${OLLAMA_VM_MEMORY_SYNC_INTERVAL_SECONDS}";
+      done'
+    restart: unless-stopped
+
   cm_team:
     build:
       context: .
@@ -307,6 +421,87 @@ services:
       sh -lc 'while true; do
       python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents main tracy --memory-dir /mentor_data/workspace/memory --log-title "Agency Ops Memory Log" --timezone "$${AGENCY_OPS_MEMORY_TIMEZONE}";
       sleep "$${AGENCY_OPS_MEMORY_SYNC_INTERVAL_SECONDS}";
+      done'
+    restart: unless-stopped
+
+  openclaw-vivvi:
+    image: openclaw:qmd
+    container_name: openclaw-vivvi
+    ports:
+      - "${OPENCLAW_VIVVI_PORT:-8084}:8080"
+      - "127.0.0.1:${OPENCLAW_VIVVI_GATEWAY_PORT:-18793}:${OPENCLAW_VIVVI_GATEWAY_PORT:-18793}"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCLAW_PRIMARY_MODEL=${OPENCLAW_VIVVI_MODEL:-openrouter/moonshotai/kimi-k2.5}
+      - AUTH_USERNAME=${OPENCLAW_VIVVI_AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${OPENCLAW_VIVVI_AUTH_PASSWORD:-}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_VIVVI_GATEWAY_BIND:-lan}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_VIVVI_GATEWAY_TOKEN:-}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_VIVVI_GATEWAY_PORT:-18793}
+      - BROWSER_CDP_URL=http://browser-vivvi:9222
+      - BROWSER_DEFAULT_PROFILE=openclaw-vivvi
+      - BROWSER_EVALUATE_ENABLED=true
+      # Telegram bi-directional channel defaults (override in .env as needed).
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN_VIVVI:-}
+      - TELEGRAM_DM_POLICY=${TELEGRAM_DM_POLICY_VIVVI:-allowlist}
+      - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM_VIVVI:-}
+      - TELEGRAM_GROUP_POLICY=${TELEGRAM_GROUP_POLICY_VIVVI:-allowlist}
+      - TELEGRAM_GROUP_ALLOW_FROM=${TELEGRAM_GROUP_ALLOW_FROM_VIVVI:-}
+      - TELEGRAM_REPLY_TO_MODE=${TELEGRAM_REPLY_TO_MODE_VIVVI:-all}
+      - TELEGRAM_CHUNK_MODE=${TELEGRAM_CHUNK_MODE_VIVVI:-newline}
+      - TELEGRAM_TEXT_CHUNK_LIMIT=${TELEGRAM_TEXT_CHUNK_LIMIT_VIVVI:-3500}
+      - TELEGRAM_STREAM_MODE=${TELEGRAM_STREAM_MODE_VIVVI:-partial}
+      - TELEGRAM_LINK_PREVIEW=${TELEGRAM_LINK_PREVIEW_VIVVI:-false}
+      - TELEGRAM_MEDIA_MAX_MB=${TELEGRAM_MEDIA_MAX_MB_VIVVI:-10}
+      - TELEGRAM_REACTION_NOTIFICATIONS=${TELEGRAM_REACTION_NOTIFICATIONS_VIVVI:-own}
+      - TELEGRAM_REACTION_LEVEL=${TELEGRAM_REACTION_LEVEL_VIVVI:-minimal}
+      - TELEGRAM_INLINE_BUTTONS=${TELEGRAM_INLINE_BUTTONS_VIVVI:-allowlist}
+      - TELEGRAM_ACTIONS_REACTIONS=${TELEGRAM_ACTIONS_REACTIONS_VIVVI:-true}
+      - TELEGRAM_ACTIONS_STICKER=${TELEGRAM_ACTIONS_STICKER_VIVVI:-false}
+      - TELEGRAM_WEBHOOK_URL=${TELEGRAM_WEBHOOK_URL_VIVVI:-}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET_VIVVI:-}
+      - TELEGRAM_WEBHOOK_PATH=${TELEGRAM_WEBHOOK_PATH_VIVVI:-/telegram-webhook}
+      - TELEGRAM_MESSAGE_PREFIX=${TELEGRAM_MESSAGE_PREFIX_VIVVI:-}
+      - OPENCLAW_STATE_DIR=${OPENCLAW_VIVVI_STATE_DIR:-/data/.openclaw}
+    volumes:
+      - ./data/openclaw_vivvi:/data
+    depends_on:
+      - browser-vivvi
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  browser-vivvi:
+    image: coollabsio/openclaw-browser:latest
+    container_name: openclaw-browser-vivvi
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - CHROME_CLI=--remote-debugging-port=9222
+    volumes:
+      - ./data/browser_vivvi:/config
+    shm_size: 2g
+    restart: unless-stopped
+
+  vivvi_memory:
+    image: python:3.12-slim
+    container_name: vivvi-memory-sync
+    environment:
+      - VIVVI_MEMORY_TIMEZONE=${VIVVI_MEMORY_TIMEZONE:-UTC}
+      - VIVVI_MEMORY_SYNC_INTERVAL_SECONDS=${VIVVI_MEMORY_SYNC_INTERVAL_SECONDS:-300}
+      - VIVVI_MEMORY_AGENTS=${VIVVI_MEMORY_AGENTS:-main}
+    volumes:
+      - ./data/openclaw_vivvi:/mentor_data
+      - ./scripts/mentor_memory_rollup.py:/app/mentor_memory_rollup.py:ro
+    command: >
+      sh -lc 'while true; do
+      python /app/mentor_memory_rollup.py --sessions-root /mentor_data/.openclaw/agents --agents $${VIVVI_MEMORY_AGENTS} --memory-dir /mentor_data/workspace/memory --log-title "Vivvi Memory Log" --timezone "$${VIVVI_MEMORY_TIMEZONE}";
+      sleep "$${VIVVI_MEMORY_SYNC_INTERVAL_SECONDS}";
       done'
     restart: unless-stopped
 
