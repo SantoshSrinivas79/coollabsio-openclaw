@@ -117,6 +117,24 @@ if [[ "${RESTART}" -eq 1 ]]; then
     docker compose up -d ollama-vm >/dev/null
   )
   echo "Reloaded ollama-vm."
+  expected_primary="${PROVIDER}/${MODEL_ID}"
+  for _ in $(seq 1 30); do
+    actual_primary="$(
+      cd "${ROOT_DIR}" && docker compose exec -T ollama-vm node -e '
+        const fs = require("fs");
+        try {
+          const c = JSON.parse(fs.readFileSync("/vm/.openclaw/openclaw.json", "utf8"));
+          console.log(c?.agents?.defaults?.model?.primary || "");
+        } catch {
+          console.log("");
+        }
+      ' 2>/dev/null | tail -n1
+    )"
+    if [[ "${actual_primary}" == "${expected_primary}" ]]; then
+      break
+    fi
+    sleep 1
+  done
   (
     cd "${ROOT_DIR}"
     docker compose exec -T ollama-vm node -e '
